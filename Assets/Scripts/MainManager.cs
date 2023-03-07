@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using System.IO;
 
 public class MainManager : MonoBehaviour
 {
@@ -11,6 +12,8 @@ public class MainManager : MonoBehaviour
     public Rigidbody Ball;
 
     public Text ScoreText;
+    public Text hiScoreText;
+    public int hiScoreLoaded;
     public GameObject GameOverText;
     
     private bool m_Started = false;
@@ -18,10 +21,18 @@ public class MainManager : MonoBehaviour
     
     private bool m_GameOver = false;
 
+    private string savePath;
     
     // Start is called before the first frame update
     void Start()
     {
+        // Initialize the Current Score
+        string playerName = StatsManager.Instance.playerName;
+        ScoreText.text = $"{playerName}'s Score : {m_Points}";
+
+        // Initialize the High Score
+        InitializeHighScore();
+
         const float step = 0.6f;
         int perLine = Mathf.FloorToInt(4.0f / step);
         
@@ -65,12 +76,58 @@ public class MainManager : MonoBehaviour
     void AddPoint(int point)
     {
         m_Points += point;
-        ScoreText.text = $"Score : {m_Points}";
+        string playerName = StatsManager.Instance.playerName;
+        ScoreText.text = $"{playerName}'s Score : {m_Points}";
     }
 
     public void GameOver()
     {
         m_GameOver = true;
         GameOverText.SetActive(true);
+        SaveScore(StatsManager.Instance.playerName, m_Points);
+    }
+
+    private void InitializeHighScore()
+    {
+        savePath = Application.persistentDataPath + "/savedata.json";
+        Debug.Log($"File Save Path: {savePath}");
+        if (File.Exists(savePath))
+        {
+            Debug.Log("Save file exists.");
+            string json = File.ReadAllText(savePath);
+            SaveData data = JsonUtility.FromJson<SaveData>(json);
+            hiScoreText.text = $"Best Score : {data.highScoreName} : {data.highScore}";
+            Debug.Log($"High score found! {data.highScoreName}, {data.highScore}");
+            hiScoreLoaded = data.highScore;
+        } else
+        {
+            hiScoreText.text = "No High Score Recorded!";
+            Debug.Log("No High Score is available.");
+        }
+    }
+
+    private void SaveScore(string name, int score)
+    {
+        if (m_Points > hiScoreLoaded)
+        {
+            savePath = Application.persistentDataPath + "/savedata.json";
+            SaveData saveData = new SaveData();
+            saveData.highScoreName = name;
+            saveData.highScore = score;
+
+            string json = JsonUtility.ToJson(saveData);
+            File.WriteAllText(savePath, json);
+            Debug.Log($"File saved: {savePath}");
+        } else
+        {
+            Debug.Log("Current game not eligible for high score.");
+        }
+    }
+
+    [System.Serializable]
+    class SaveData
+    {
+        public string highScoreName;
+        public int highScore;
     }
 }
